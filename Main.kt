@@ -47,11 +47,11 @@ fun decode(input: String): Result<String> =
 private fun chuckNorrisToBinary(encodedInput: String): Result<String> =
     runCatching {
         encodedInput
-            .split(" ")
+            .splitToSequence(" ")
             .chunked(size = 2)
             .joinToString("") {
+                require(it.size == 2) { "The number of blocks is odd" }
                 when {
-                    it.size < 2 -> throw IllegalArgumentException("The number of blocks is odd")
                     it.first() == "0" -> "1"
                     it.first() == "00" -> "0"
                     else -> throw IllegalArgumentException("The first block of each sequence is not 0 or 00")
@@ -61,42 +61,40 @@ private fun chuckNorrisToBinary(encodedInput: String): Result<String> =
 
 private fun decodeBinary(binaryString: String): Result<String> =
     runCatching {
-        binaryString
+        String(binaryString
             .chunked(7)
             .map {
-                if (it.length < 7)
-                    throw IllegalArgumentException("The length of the decoded binary string is not a multiple of 7")
-                Integer.parseInt(it, 2) }
-            .map { it.toChar() }
-            .joinToString("")
+                require (it.length == 7) { "The length of the decoded binary string is not a multiple of 7" }
+                it.toInt(2).toChar() }.toCharArray()
+        )
     }
 
 private fun binaryToChuck(norris: String): String {
-    val result = mutableListOf<String>()
-    var counter = 0
-    var previous = '#'
-    for (digit in norris) {
-        if (digit == previous)
-            counter++
-        else {
-            previous = digit
-            if (counter > 0)
-                result.add("0".repeat(counter))
-            counter = 1
-            result.add(if (digit == '1') "0" else "00")
+    return sequence {
+        var counter = 0
+        var previous = '#'
+        for (digit in norris) {
+            if (digit == previous)
+                counter++
+            else {
+                previous = digit
+                if (counter > 0)
+                    this.yield("0".repeat(counter))
+                counter = 1
+                this.yield(if (digit == '1') "0" else "00")
+            }
         }
-    }
-    result.add("0".repeat(counter))
-    return result.joinToString(" ")
+        this.yield("0".repeat(counter))
+    }.joinToString(" ")
 }
 
 private fun encodeToBinary(input: String): Result<String> =
     try {
-        Result.success(input.toCharArray().map {
-            if (it.code !in 0..127)
-                throw IllegalArgumentException("Input string contains non-ASCII characters")
-            it.code.toString(2).padStart(7, '0')
-        }.joinToString(""))
+        Result.success(
+            input.map {
+                require(it.code in 0..127) { "Input string contains non-ASCII characters" }
+                it.code.toString(2).padStart(7, '0')
+            }.joinToString(""))
     } catch (e: IllegalArgumentException) {
         Result.failure(e)
     }
